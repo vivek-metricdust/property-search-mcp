@@ -56,7 +56,6 @@ async def extract_search_params(query: str) -> PropertySearchParams:
         )
 
         if hasattr(response, "parsed") and response.parsed is not None:
-            print(f"Extracted Params: {response.parsed.model_dump()}")
             return response.parsed
         else:
             print(
@@ -124,6 +123,7 @@ async def get_properties(
     if query:
         try:
             llm_params = await extract_search_params(query)
+            print(f"Extracted Params: {llm_params.model_dump()}")
             # Use LLM-extracted values as a base
             params = llm_params
         except Exception as e:
@@ -188,7 +188,12 @@ async def get_properties(
 
         # Fetch properties with the filtered payload
         response = await fetch_properties(payload, params.city, params.state)
-        return response.get("data", [])
+        properties = response.get("data", [])
+        print(f"Fetched Properties: {len(properties)}")
+
+        # Return response with length and properties
+        # return response.get("data", [])
+        return {"length": len(properties), "properties": properties}
 
     except Exception as e:
         raise HTTPException(
