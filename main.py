@@ -1,20 +1,86 @@
-import json
+import os
 from fastapi import FastAPI, Query, HTTPException
 import httpx
-from fastapi.responses import JSONResponse
 from typing import Optional, Dict, Any
+from pydantic import BaseModel, Field
+from google import genai
+from google.genai.types import GenerateContentConfig
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# --- Gemini Configuration and Helper Functions ---
+try:
+    client = genai.Client()
+    MODEL_NAME = "gemini-2.5-flash"
+except Exception as e:
+    print(f"Error initializing Gemini client: {e}")
+    client = None
+
+
+# Pydantic Model for Search Parameters
+class PropertySearchParams(BaseModel):
+    """Parameters extracted from natural language query"""
+
+    city: str = Field(default="Seattle", description="City name")
+    state: str = Field(default="WA", description="State code (e.g., 'WA')")
+    country: str = Field(default="USA", description="Country name")
+    min_price: Optional[int] = Field(None, description="Minimum price filter")
+    max_price: Optional[int] = Field(None, description="Maximum price filter")
+
+
+async def extract_search_params(query: str) -> PropertySearchParams:
+    """Extract property search parameters from natural language query using Gemini's Structured Output."""
+    if client is None:
+        return PropertySearchParams()
+
+    try:
+        # Define the configuration for structured output
+        config = GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=PropertySearchParams,
+        )
+
+        # The prompt is simplified because the schema now enforces the output structure
+        prompt = f"""Extract the following information from this property search query: city, state, country, min_price, max_price.
+        Use these default values if not specified: city: Seattle, state: WA, country: USA. Set min_price/max_price to null if not specified.
+        
+        Query: {query}"""
+
+        # Get response from Gemini
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=[prompt],
+            config=config,
+        )
+
+        if hasattr(response, "parsed") and response.parsed is not None:
+            print(f"Extracted Params: {response.parsed.model_dump()}")
+            return response.parsed
+        else:
+            print(
+                f"Warning: Structured output parsing failed. Raw text: {response.text}"
+            )
+            return PropertySearchParams()
+
+    except Exception as e:
+        print(f"Error extracting parameters from Gemini: {str(e)}")
+        return PropertySearchParams()
+
+
+# --- FastAPI Application ---
 
 app = FastAPI(title="Property API", version="1.0.0")
-# API_URL = "https://mz5wkrw9e4.execute-api.us-east-1.amazonaws.com/property_listing_service/prod/public/tenant/shopprop/city/seattle/state/wa"
 BASE_URL = "https://mz5wkrw9e4.execute-api.us-east-1.amazonaws.com/property_listing_service/prod/public/tenant/shopprop"
 
 
 async def fetch_properties(
     payload: Optional[Dict[str, Any]] = None, city: str = "seattle", state: str = "wa"
 ) -> Dict[str, Any]:
-    """Fetch properties from the API with the given payload"""
+    """Fetch properties from the API with the given payload (Function body kept for completeness)"""
     headers = {
-        "apikey": "59d02ffe-07c6-4823-99bd-f003fe5119de",
+        "apikey": os.getenv("API_KEY"),
         "authorization": "",
         "company": "shopprop",
         "tenant": "shopprop",
@@ -23,7 +89,6 @@ async def fetch_properties(
     }
 
     api_url = f"{BASE_URL}/city/{city.lower()}/state/{state.lower()}"
-    print(api_url)
 
     try:
         async with httpx.AsyncClient() as client:
@@ -43,21 +108,47 @@ async def fetch_properties(
 
 @app.get("/properties")
 async def get_properties(
-    city: str = Query("Seattle", description="City name to search for properties"),
-    state: str = Query("WA", description="State code (e.g., 'WA')"),
-    country: str = Query("USA", description="Country name"),
-    min_price: int = Query(25000, description="Minimum price filter"),
+    query: str = Query(None, description="Natural language query for property search"),
+    city: str = Query(None, description="City name to search for properties"),
+    state: str = Query(None, description="State code (e.g., 'WA')"),
+    country: str = Query(None, description="Country name"),
+    min_price: Optional[int] = Query(None, description="Minimum price filter"),
     max_price: Optional[int] = Query(None, description="Maximum price filter"),
 ):
     """Get properties with optional filtering by location and price range"""
+
+    params = PropertySearchParams(
+        city="Seattle", state="WA", country="USA", min_price=None, max_price=None
+    )
+
+    if query:
+        try:
+            llm_params = await extract_search_params(query)
+            # Use LLM-extracted values as a base
+            params = llm_params
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"Error processing LLM query: {str(e)}"
+            )
+
+    if city is not None:
+        params.city = city
+    if state is not None:
+        params.state = state
+    if country is not None:
+        params.country = country
+    if min_price is not None:
+        params.min_price = min_price
+    if max_price is not None:
+        params.max_price = max_price
+
     try:
-        # Build the payload with default values
-        payload = {
+        # Build the payload with the determined parameters
+        payload: Dict[str, Any] = {
             "sort_by": "last_updated_time",
             "order_by": "desc",
-            "searched_address_formatted": f"{city}, {state}, {country}",
+            "searched_address_formatted": f"{params.city}, {params.state}, {params.country}",
             "property_status": "SALE",
-            "min_price": min_price,
             "output": [
                 "area",
                 "price",
@@ -87,12 +178,16 @@ async def get_properties(
             "cursor": None,
         }
 
-        # Apply max_price filter if provided
-        if max_price is not None:
-            payload["max_price"] = max_price
+        # Add price filters only if they have a value (None will be excluded by default
+        # if using model_dump, but explicitly checking handles the API payload structure)
+        if params.min_price is not None:
+            payload["min_price"] = params.min_price
+
+        if params.max_price is not None:
+            payload["max_price"] = params.max_price
 
         # Fetch properties with the filtered payload
-        response = await fetch_properties(payload, city, state)
+        response = await fetch_properties(payload, params.city, params.state)
         return response.get("data", [])
 
     except Exception as e:
@@ -104,4 +199,5 @@ async def get_properties(
 if __name__ == "__main__":
     import uvicorn
 
+    # Make sure to set GOOGLE_API_KEY environment variable before running
     uvicorn.run(app, host="0.0.0.0", port=8000)
