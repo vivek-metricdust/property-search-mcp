@@ -5,10 +5,13 @@ from fastapi.responses import JSONResponse
 from typing import Optional, Dict, Any
 
 app = FastAPI(title="Property API", version="1.0.0")
-API_URL = "https://mz5wkrw9e4.execute-api.us-east-1.amazonaws.com/property_listing_service/prod/public/tenant/shopprop/city/seattle/state/wa"
+# API_URL = "https://mz5wkrw9e4.execute-api.us-east-1.amazonaws.com/property_listing_service/prod/public/tenant/shopprop/city/seattle/state/wa"
+BASE_URL = "https://mz5wkrw9e4.execute-api.us-east-1.amazonaws.com/property_listing_service/prod/public/tenant/shopprop"
 
 
-async def fetch_properties(payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+async def fetch_properties(
+    payload: Optional[Dict[str, Any]] = None, city: str = "seattle", state: str = "wa"
+) -> Dict[str, Any]:
     """Fetch properties from the API with the given payload"""
     headers = {
         "apikey": "59d02ffe-07c6-4823-99bd-f003fe5119de",
@@ -19,10 +22,13 @@ async def fetch_properties(payload: Optional[Dict[str, Any]] = None) -> Dict[str
         "user": "test",
     }
 
+    api_url = f"{BASE_URL}/city/{city.lower()}/state/{state.lower()}"
+    print(api_url)
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                API_URL, headers=headers, json=payload, timeout=30.0
+                api_url, headers=headers, json=payload, timeout=30.0
             )
             response.raise_for_status()
             return response.json()
@@ -65,7 +71,7 @@ async def get_properties(
                 "status",
                 "openhouse_latest_value",
             ],
-            "image_count": 2,
+            "image_count": 0,
             "size": 100,
             "allowed_mls": [
                 "ARMLS",
@@ -86,51 +92,12 @@ async def get_properties(
             payload["max_price"] = max_price
 
         # Fetch properties with the filtered payload
-        response = await fetch_properties(payload)
+        response = await fetch_properties(payload, city, state)
         return response.get("data", [])
 
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error processing properties: {str(e)}"
-        )
-
-
-@app.get("/properties/{property_id}")
-async def get_property(property_id: str):
-    """Get a single property by ID"""
-    try:
-        # First, get the property details
-        payload = {
-            "property_status": "SALE",
-            "output": [
-                "area",
-                "price",
-                "bedroom",
-                "bathroom",
-                "property_descriptor",
-                "location",
-                "has_open_house",
-                "virtual_url",
-                "address",
-                "status",
-                "openhouse_latest_value",
-            ],
-            "property_id": property_id,
-        }
-
-        response = await fetch_properties(payload)
-        properties = response.get("data", [])
-
-        if not properties:
-            raise HTTPException(status_code=404, detail="Property not found")
-
-        return properties[0]
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error fetching property: {str(e)}"
         )
 
 
