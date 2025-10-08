@@ -1,12 +1,19 @@
+# main.py - A simpler version for use with clients like mcp-use
+
 import os
 import asyncio
 import httpx
 from typing import Optional
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
+import sys
+from pathlib import Path
 
 # --- FastMCP Imports ---
 from fastmcp import FastMCP
+
+sys.path.append(str(Path(__file__).parent))
+os.chdir(Path(__file__).parent)
 
 # Load environment variables (API_KEY)
 load_dotenv()
@@ -15,18 +22,13 @@ load_dotenv()
 mcp = FastMCP("property-search-mcp")
 
 
-# --- Pydantic Model for API Call (Still useful!) ---
-class PropertySearchParams(BaseModel):
-    """Parameters for the property search tool."""
-
-    city: str = Field(description="City name to search in (e.g., 'Seattle')")
-    state: str = Field(description="State code (e.g., 'WA')")
-    min_price: Optional[int] = Field(None, description="Minimum property price")
-    max_price: Optional[int] = Field(None, description="Maximum property price")
-
-
 # --- Helper Function to Fetch Properties (Unchanged) ---
-async def fetch_properties_from_api(params: PropertySearchParams) -> dict:
+async def fetch_properties_from_api(
+    city: str,
+    state: str,
+    min_price: Optional[int] = None,
+    max_price: Optional[int] = None,
+) -> dict:
     """Fetches properties from the external property API."""
     api_key = os.getenv("API_KEY")
     tenant = os.getenv("TENANT")
@@ -36,19 +38,19 @@ async def fetch_properties_from_api(params: PropertySearchParams) -> dict:
     headers = {
         "apikey": api_key,
         "authorization": "",
-        "company": tenant,
-        "tenant": tenant,
+        "company": "shopprop",
+        "tenant": "shopprop",
         "Content-Type": "application/json",
         "user": "test",
     }
 
     BASE_URL = "https://mz5wkrw9e4.execute-api.us-east-1.amazonaws.com/property_listing_service/prod/public"
-    api_url = f"{BASE_URL}/tenant/{tenant}/city/{params.city.lower()}/state/{params.state.lower()}"
+    api_url = f"{BASE_URL}/tenant/{tenant}/city/{city.lower()}/state/{state.lower()}"
 
     payload = {
         "sort_by": "last_updated_time",
         "order_by": "desc",
-        "searched_address_formatted": f"{params.city}, {params.state}, USA",
+        "searched_address_formatted": f"{city}, {state}, USA",
         "property_status": "SALE",
         "output": [
             "area",
@@ -69,10 +71,10 @@ async def fetch_properties_from_api(params: PropertySearchParams) -> dict:
         "cursor": None,
     }
 
-    if params.min_price is not None:
-        payload["min_price"] = params.min_price
-    if params.max_price is not None:
-        payload["max_price"] = params.max_price
+    if min_price is not None:
+        payload["min_price"] = min_price
+    if max_price is not None:
+        payload["max_price"] = max_price
 
     try:
         async with httpx.AsyncClient() as client:
@@ -99,26 +101,16 @@ async def search_properties(
     Searches for real estate property listings for sale in a specific city and state.
     You can filter by minimum and maximum price.
     """
-    # Create the params object to call our helper function
-    params = PropertySearchParams(
-        city=city, state=state, min_price=min_price, max_price=max_price
-    )
+    response_data = await fetch_properties_from_api(city, state, min_price, max_price)
 
-    # Fetch data from the external API
-    response_data = await fetch_properties_from_api(params)
-
-    # Handle errors from the API call
     if "error" in response_data:
         return f"Failed to fetch properties: {response_data['error']}"
 
     properties = response_data.get("data", [])
     if not properties:
-        return f"No properties found in {params.city}, {params.state} matching your criteria."
+        return f"No properties found in {city}, {state} matching your criteria."
 
-    # Format the results into a readable string for the AI
-    result_string = (
-        f"Found {len(properties)} properties in {params.city}, {params.state}:\n\n"
-    )
+    result_string = f"Found {len(properties)} properties in {city}, {state}:\n\n"
     for prop in properties:
         price_val = prop.get("price")
         formatted_price = (
@@ -138,5 +130,4 @@ async def search_properties(
 
 # --- Main Execution ---
 if __name__ == "__main__":
-    # The run() method handles all the stdio setup and server lifecycle
     mcp.run()
