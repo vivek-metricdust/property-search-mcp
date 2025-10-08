@@ -29,14 +29,15 @@ class PropertySearchParams(BaseModel):
 async def fetch_properties_from_api(params: PropertySearchParams) -> dict:
     """Fetches properties from the external property API."""
     api_key = os.getenv("API_KEY")
+    tenant = os.getenv("TENANT")
     if not api_key:
         return {"error": "API_KEY environment variable not set on the server."}
 
     headers = {
         "apikey": api_key,
         "authorization": "",
-        "company": "shopprop",
-        "tenant": "shopprop",
+        "company": tenant,
+        "tenant": tenant,
         "Content-Type": "application/json",
         "user": "test",
     }
