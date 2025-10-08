@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "property-search": {
+      "command": "c:\\CODE\\MD\\property-search-mcp\\.venv\\Scripts\\python.exe",
+      "args": ["c:\\CODE\\MD\\property-search-mcp\\main.py"]
+    }
+  }
+}
