@@ -42,8 +42,8 @@ async def fetch_properties_from_api(params: PropertySearchParams) -> dict:
         "user": "test",
     }
 
-    BASE_URL = "https://mz5wkrw9e4.execute-api.us-east-1.amazonaws.com/property_listing_service/prod/public/tenant/shopprop"
-    api_url = f"{BASE_URL}/city/{params.city.lower()}/state/{params.state.lower()}"
+    BASE_URL = "https://mz5wkrw9e4.execute-api.us-east-1.amazonaws.com/property_listing_service/prod/public"
+    api_url = f"{BASE_URL}/tenant/{tenant}/city/{params.city.lower()}/state/{params.state.lower()}"
 
     payload = {
         "sort_by": "last_updated_time",
