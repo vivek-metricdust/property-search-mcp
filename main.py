@@ -28,6 +28,8 @@ async def fetch_properties_from_api(
     state: str,
     min_price: Optional[int] = None,
     max_price: Optional[int] = None,
+    bedrooms: Optional[int] = None,
+    bathrooms: Optional[int] = None,
 ) -> dict:
     """Fetches properties from the external property API."""
     api_key = os.getenv("API_KEY")
@@ -75,7 +77,10 @@ async def fetch_properties_from_api(
         payload["min_price"] = min_price
     if max_price is not None:
         payload["max_price"] = max_price
-
+    if bedrooms is not None:
+        payload["bedroom"] = bedrooms
+    if bathrooms is not None:
+        payload["bathroom"] = bathrooms
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -96,12 +101,16 @@ async def search_properties(
     state: str,
     min_price: Optional[int] = None,
     max_price: Optional[int] = None,
+    bedrooms: Optional[int] = None,
+    bathrooms: Optional[int] = None,
 ) -> str:
     """
     Searches for real estate property listings for sale in a specific city and state.
     You can filter by minimum and maximum price.
     """
-    response_data = await fetch_properties_from_api(city, state, min_price, max_price)
+    response_data = await fetch_properties_from_api(
+        city, state, min_price, max_price, bedrooms, bathrooms
+    )
 
     if "error" in response_data:
         return f"Failed to fetch properties: {response_data['error']}"
@@ -112,15 +121,12 @@ async def search_properties(
 
     result_string = f"Found {len(properties)} properties in {city}, {state}:\n\n"
     for prop in properties:
-        price_val = prop.get("price")
-        formatted_price = (
-            f"${price_val:,}" if isinstance(price_val, (int, float)) else "N/A"
-        )
-
+        address = prop.get('google_address') if prop.get('google_address') else prop.get('address')
         result_string += (
-            f"- **{prop.get('address', 'N/A')}**\n"
-            f"  - Price: {formatted_price}\n"
-            f"  - Beds: {prop.get('bedroom', 'N/A')} | Baths: {prop.get('bathroom', 'N/A')}\n"
+            f"- **{address}**\n"
+            f"  - Price: {prop.get('price', 'N/A')}\n"
+            f"  - Beds: {prop.get('bedroom', 'N/A')}\n"
+            f"  - Baths: {prop.get('bathroom', 'N/A')}\n"
             f"  - Area: {prop.get('area', 'N/A')} sqft\n"
             f"  - Description: {prop.get('property_descriptor', 'N/A')}\n\n"
         )
