@@ -1,0 +1,226 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Property Listing API",
+    "description": "An API to search for real estate property listings for sale. This specification was generated from a code example.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://mz5wkrw9e4.execute-api.us-east-1.amazonaws.com/property_listing_service/prod/public",
+      "description": "Production server for property listings"
+    }
+  ],
+  "paths": {
+    "/tenant/{tenant}/city/{city}/state/{state}": {
+      "post": {
+        "summary": "Search for properties",
+        "description": "Fetches a list of properties for sale in a specific city and state, with optional filtering.",
+        "parameters": [
+          {
+            "name": "tenant",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The tenant identifier (e.g., 'shopprop').",
+            "example": "shopprop"
+          },
+          {
+            "name": "city",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The city to search in.",
+            "example": "austin"
+          },
+          {
+            "name": "state",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The state to search in.",
+            "example": "texas"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sort_by": {
+                    "type": "string",
+                    "example": "last_updated_time"
+                  },
+                  "order_by": {
+                    "type": "string",
+                    "enum": ["asc", "desc"],
+                    "example": "desc"
+                  },
+                  "searched_address_formatted": {
+                    "type": "string",
+                    "example": "austin, texas, USA"
+                  },
+                  "property_status": {
+                    "type": "string",
+                    "example": "SALE"
+                  },
+                  "output": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": [
+                      "area",
+                      "price",
+                      "bedroom",
+                      "bathroom",
+                      "property_descriptor",
+                      "location",
+                      "has_open_house",
+                      "virtual_url",
+                      "address",
+                      "status",
+                      "openhouse_latest_value"
+                    ]
+                  },
+                  "image_count": {
+                    "type": "integer",
+                    "example": 0
+                  },
+                  "size": {
+                    "type": "integer",
+                    "example": 10,
+                    "description": "Number of results to return."
+                  },
+                  "allowed_mls": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": [
+                      "ARMLS",
+                      "ACTRISMLS",
+                      "BAREISMLS",
+                      "CRMLS",
+                      "CENTRALMLS",
+                      "MLSLISTINGS",
+                      "NWMLS",
+                      "NTREISMLS",
+                      "shopprop"
+                    ]
+                  },
+                  "cursor": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Cursor for pagination."
+                  },
+                  "min_price": {
+                    "type": "integer",
+                    "example": 250000
+                  },
+                  "max_price": {
+                    "type": "integer",
+                    "example": 500000
+                  },
+                  "bedroom": {
+                    "type": "integer",
+                    "example": 3
+                  },
+                  "bathroom": {
+                    "type": "integer",
+                    "example": 2
+                  }
+                },
+                "required": [
+                  "sort_by",
+                  "order_by",
+                  "searched_address_formatted",
+                  "property_status",
+                  "output",
+                  "image_count",
+                  "size",
+                  "allowed_mls"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response with a list of properties.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "type": "string"
+                          },
+                          "price": {
+                            "type": "number"
+                          },
+                          "bedroom": {
+                            "type": "integer"
+                          },
+                          "bathroom": {
+                            "type": "integer"
+                          },
+                          "area": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "4xx": {
+            "description": "Client error (e.g., bad request, invalid parameters).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "5xx": {
+            "description": "Server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

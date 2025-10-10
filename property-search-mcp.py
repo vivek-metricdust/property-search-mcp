@@ -1,4 +1,4 @@
-# main.py - A simpler version for use with clients like mcp-use
+# property-search-mcp.py - A simpler version for use with clients like mcp-use
 
 import os
 import asyncio
@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 import sys
 from pathlib import Path
 import logging
+import json
 
 # --- FastMCP Imports ---
 from fastmcp import FastMCP
@@ -24,6 +25,20 @@ logger = logging.getLogger(__name__)
 
 # --- FastMCP Server Initialization ---
 mcp = FastMCP("property-search-mcp")
+
+# --- Load OpenAPI Specification ---
+SCRIPT_DIR = Path(__file__).parent
+SPEC_FILE_PATH = SCRIPT_DIR / "openapi.json"
+
+try:
+    with open(SPEC_FILE_PATH, "r") as f:
+        openapi_spec = json.load(f)
+    logger.info(f"Successfully loaded openapi.json from {SPEC_FILE_PATH}")
+except FileNotFoundError:
+    logger.error(
+        f"FATAL: openapi.json not found at {SPEC_FILE_PATH}. Please ensure it is in the same directory as the script."
+    )
+    openapi_spec = None
 
 
 # --- Helper Function to Fetch Properties (Unchanged) ---
@@ -50,44 +65,60 @@ async def fetch_properties_from_api(
         "user": "test",
     }
 
-    BASE_URL = "https://mz5wkrw9e4.execute-api.us-east-1.amazonaws.com/property_listing_service/prod/public"
-    api_url = f"{BASE_URL}/tenant/{tenant}/city/{city.lower()}/state/{state.lower()}"
+    server_url = openapi_spec["servers"][0]["url"]
+    path_template = "/tenant/{tenant}/city/{city}/state/{state}"
+    api_path = path_template.format(
+        tenant=tenant, city=city.lower(), state=state.lower()
+    )
+    full_url = f"{server_url}{api_path}"
+    # logger.info(f"API URL: {full_url}")
 
-    logger.info(f"API URL: {api_url}")
+    # payload = {
+    #     "sort_by": "last_updated_time",
+    #     "order_by": "desc",
+    #     "searched_address_formatted": f"{city}, {state}, USA",
+    #     "property_status": "SALE",
+    #     "output": [
+    #         "area",
+    #         "price",
+    #         "bedroom",
+    #         "bathroom",
+    #         "property_descriptor",
+    #         "location",
+    #         "has_open_house",
+    #         "virtual_url",
+    #         "address",
+    #         "status",
+    #         "openhouse_latest_value",
+    #     ],
+    #     "image_count": 0,
+    #     "size": 10,
+    #     "allowed_mls": [
+    #         "ARMLS",
+    #         "ACTRISMLS",
+    #         "BAREISMLS",
+    #         "CRMLS",
+    #         "CENTRALMLS",
+    #         "MLSLISTINGS",
+    #         "NWMLS",
+    #         "NTREISMLS",
+    #         "shopprop",
+    #     ],
+    #     "cursor": None,
+    # }
+
+    path_item = openapi_spec["paths"][path_template]
+    base_payload_schema = path_item["post"]["requestBody"]["content"][
+        "application/json"
+    ]["schema"]["properties"]
 
     payload = {
-        "sort_by": "last_updated_time",
-        "order_by": "desc",
-        "searched_address_formatted": f"{city}, {state}, USA",
-        "property_status": "SALE",
-        "output": [
-            "area",
-            "price",
-            "bedroom",
-            "bathroom",
-            "property_descriptor",
-            "location",
-            "has_open_house",
-            "virtual_url",
-            "address",
-            "status",
-            "openhouse_latest_value",
-        ],
-        "image_count": 0,
-        "size": 10,
-        "allowed_mls": [
-            "ARMLS",
-            "ACTRISMLS",
-            "BAREISMLS",
-            "CRMLS",
-            "CENTRALMLS",
-            "MLSLISTINGS",
-            "NWMLS",
-            "NTREISMLS",
-            "shopprop",
-        ],
-        "cursor": None,
+        key: value.get("example")
+        for key, value in base_payload_schema.items()
+        if key not in ["min_price", "max_price", "bedroom", "bathroom"]
     }
+
+    payload["searched_address_formatted"] = f"{city}, {state}, USA"
 
     if min_price is not None:
         payload["min_price"] = min_price
@@ -100,7 +131,7 @@ async def fetch_properties_from_api(
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                api_url, headers=headers, json=payload, timeout=30.0
+                full_url, headers=headers, json=payload, timeout=30.0
             )
             response.raise_for_status()
             return response.json()
