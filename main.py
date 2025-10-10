@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 import sys
 from pathlib import Path
+import logging
 
 # --- FastMCP Imports ---
 from fastmcp import FastMCP
@@ -17,6 +18,9 @@ os.chdir(Path(__file__).parent)
 
 # Load environment variables (API_KEY)
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # --- FastMCP Server Initialization ---
 mcp = FastMCP("property-search-mcp")
@@ -49,6 +53,8 @@ async def fetch_properties_from_api(
     BASE_URL = "https://mz5wkrw9e4.execute-api.us-east-1.amazonaws.com/property_listing_service/prod/public"
     api_url = f"{BASE_URL}/tenant/{tenant}/city/{city.lower()}/state/{state.lower()}"
 
+    logger.info(f"API URL: {api_url}")
+
     payload = {
         "sort_by": "last_updated_time",
         "order_by": "desc",
@@ -69,7 +75,17 @@ async def fetch_properties_from_api(
         ],
         "image_count": 0,
         "size": 10,
-        "allowed_mls": ["NWMLS", "shopprop"],
+        "allowed_mls": [
+            "ARMLS",
+            "ACTRISMLS",
+            "BAREISMLS",
+            "CRMLS",
+            "CENTRALMLS",
+            "MLSLISTINGS",
+            "NWMLS",
+            "NTREISMLS",
+            "shopprop",
+        ],
         "cursor": None,
     }
 
@@ -121,7 +137,11 @@ async def search_properties(
 
     result_string = f"Found {len(properties)} properties in {city}, {state}:\n\n"
     for prop in properties:
-        address = prop.get('google_address') if prop.get('google_address') else prop.get('address')
+        address = (
+            prop.get("google_address")
+            if prop.get("google_address")
+            else prop.get("address")
+        )
         result_string += (
             f"- **{address}**\n"
             f"  - Price: {prop.get('price', 'N/A')}\n"
