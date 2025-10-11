@@ -3,7 +3,7 @@
 import os
 import asyncio
 import httpx
-from typing import Optional
+from typing import Optional, Union
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 import sys
@@ -50,7 +50,23 @@ async def fetch_properties_from_api(
     bedrooms: Optional[int] = None,
     bathrooms: Optional[int] = None,
 ) -> dict:
-    """Fetches properties from the external property API."""
+    """
+    Fetches properties from the external property API.
+
+    Args:
+        city (str): The city to search for properties.
+        state (str): The state to search for properties.
+        min_price (Optional[int]): The minimum price of the property.
+        max_price (Optional[int]): The maximum price of the property.
+        bedrooms (Optional[int]): The number of bedrooms in the property.
+        bathrooms (Optional[int]): The number of bathrooms in the property.
+
+    Returns:
+        dict: A dictionary containing the properties.
+
+    Example Usage:
+        fetch_properties_from_api("Kirkland", "WA", min_price=100000, max_price=200000)
+    """
     api_key = os.getenv("API_KEY")
     tenant = os.getenv("TENANT")
     if not api_key:
@@ -71,41 +87,6 @@ async def fetch_properties_from_api(
         tenant=tenant, city=city.lower(), state=state.lower()
     )
     full_url = f"{server_url}{api_path}"
-    # logger.info(f"API URL: {full_url}")
-
-    # payload = {
-    #     "sort_by": "last_updated_time",
-    #     "order_by": "desc",
-    #     "searched_address_formatted": f"{city}, {state}, USA",
-    #     "property_status": "SALE",
-    #     "output": [
-    #         "area",
-    #         "price",
-    #         "bedroom",
-    #         "bathroom",
-    #         "property_descriptor",
-    #         "location",
-    #         "has_open_house",
-    #         "virtual_url",
-    #         "address",
-    #         "status",
-    #         "openhouse_latest_value",
-    #     ],
-    #     "image_count": 0,
-    #     "size": 10,
-    #     "allowed_mls": [
-    #         "ARMLS",
-    #         "ACTRISMLS",
-    #         "BAREISMLS",
-    #         "CRMLS",
-    #         "CENTRALMLS",
-    #         "MLSLISTINGS",
-    #         "NWMLS",
-    #         "NTREISMLS",
-    #         "shopprop",
-    #     ],
-    #     "cursor": None,
-    # }
 
     path_item = openapi_spec["paths"][path_template]
     base_payload_schema = path_item["post"]["requestBody"]["content"][
@@ -146,15 +127,48 @@ async def fetch_properties_from_api(
 async def search_properties(
     city: str,
     state: str,
-    min_price: Optional[int] = None,
-    max_price: Optional[int] = None,
-    bedrooms: Optional[int] = None,
-    bathrooms: Optional[int] = None,
+    min_price: Optional[Union[int, str]] = None,
+    max_price: Optional[Union[int, str]] = None,
+    bedrooms: Optional[Union[int, str]] = None,
+    bathrooms: Optional[Union[int, str]] = None,
 ) -> str:
     """
     Searches for real estate property listings for sale in a specific city and state.
     You can filter by minimum and maximum price.
+
+    Args:
+        city (str): The city to search for properties.
+        state (str): The state to search for properties.
+        min_price (Optional[Union[int, str]]): The minimum price of the property.
+        max_price (Optional[Union[int, str]]): The maximum price of the property.
+        bedrooms (Optional[Union[int, str]]): The number of bedrooms in the property.
+        bathrooms (Optional[Union[int, str]]): The number of bathrooms in the property.
+
+    Returns:
+        str: A string containing the properties or an error message.
+
+    Example Usage:
+        search_properties("Kirkland", "WA", min_price=100000, max_price=200000)
+        search_properties("Kirkland", "WA", min_price="100000", max_price="200000")
+
+    Rules:
+        - The city and state must be in the format of a city and state in the United States.
+        - State must be in the format of a two-letter state code.
+        - The min_price and max_price must be in the format of a number or a string that can be converted to a number.
+        - The bedrooms and bathrooms must be in the format of a number or a string that can be converted to a number.
     """
+    # Convert string parameters to integers if needed
+    try:
+        if min_price is not None and isinstance(min_price, str):
+            min_price = int(min_price)
+        if max_price is not None and isinstance(max_price, str):
+            max_price = int(max_price)
+        if bedrooms is not None and isinstance(bedrooms, str):
+            bedrooms = int(bedrooms)
+        if bathrooms is not None and isinstance(bathrooms, str):
+            bathrooms = int(bathrooms)
+    except (ValueError, TypeError) as e:
+        return "Error: All numeric parameters must be valid numbers"
     response_data = await fetch_properties_from_api(
         city, state, min_price, max_price, bedrooms, bathrooms
     )
