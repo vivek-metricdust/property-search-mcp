@@ -201,5 +201,28 @@ async def search_properties(
 
 
 # --- Main Execution ---
+# --- Main Execution ---
 if __name__ == "__main__":
-    mcp.run()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Property Search MCP Server")
+    parser.add_argument(
+        "--transport",
+        default="stdio",
+        choices=["stdio", "sse"],
+        help="Transport mode (stdio or sse)",
+    )
+    parser.add_argument(
+        "--port", type=int, default=8000, help="Port to listen on for SSE"
+    )
+    parser.add_argument(
+        "--host", type=str, default="0.0.0.0", help="Host to listen on for SSE"
+    )
+
+    parser.add_argument(
+        "--path", type=str, default="/sse", help="Path for SSE endpoint"
+    )
+
+    args, unknown = parser.parse_known_args()
+
+    mcp.run(transport=args.transport, port=args.port, host=args.host, path=args.path)
