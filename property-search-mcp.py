@@ -220,7 +220,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--path", type=str, default="/sse", help="Path for SSE endpoint"
+        "--path", type=str, default="/property-search", help="Path for SSE endpoint"
     )
 
     args, unknown = parser.parse_known_args()
