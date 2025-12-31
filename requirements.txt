@@ -1,5 +1,0 @@
-# requirements.txt
-fastmcp
-httpx
-python-dotenv
-uvicorn
