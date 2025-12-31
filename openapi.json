@@ -88,12 +88,14 @@
                       "virtual_url",
                       "address",
                       "status",
-                      "openhouse_latest_value"
+                      "openhouse_latest_value",
+                      "image_urls",
+                      "last_updated_time"
                     ]
                   },
                   "image_count": {
                     "type": "integer",
-                    "example": 0
+                    "example": 10
                   },
                   "size": {
                     "type": "integer",
@@ -167,22 +169,61 @@
                         "type": "object",
                         "properties": {
                           "address": {
-                            "type": "string"
+                            "type": "object",
+                            "properties": {
+                              "city": { "type": "string" },
+                              "state": { "type": "string" },
+                              "county": { "type": "string" },
+                              "zip_code": { "type": "string" },
+                              "google_address": { "type": "string" },
+                              "full_address": { "type": "string" }
+                            }
                           },
                           "price": {
-                            "type": "number"
+                            "type": "object",
+                            "properties": {
+                              "start": { "type": "number" },
+                              "current": { "type": "number" },
+                              "is_reduced": { "type": "boolean" }
+                            }
                           },
                           "bedroom": {
-                            "type": "integer"
+                            "type": "object",
+                            "properties": {
+                              "count": { "type": "integer" }
+                            }
                           },
                           "bathroom": {
-                            "type": "integer"
+                            "type": "object",
+                            "properties": {
+                              "count": { "type": "number" }
+                            }
                           },
                           "area": {
-                            "type": "integer"
+                            "type": "object",
+                            "properties": {
+                              "lot": { "type": "number" },
+                              "finished": { "type": "number" }
+                            }
+                          },
+                          "image_urls": {
+                            "type": "array",
+                            "items": { "type": "string" }
+                          },
+                          "location": {
+                            "type": "object",
+                            "properties": {
+                              "lat": { "type": "number" },
+                              "lon": { "type": "number" }
+                            }
                           }
                         }
                       }
+                    },
+                    "cursor": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Cursor for the next page of results."
                     }
                   }
                 }
