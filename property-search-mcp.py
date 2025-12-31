@@ -23,6 +23,10 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Suppress noisy SSE session warnings if running in SSE mode
+logging.getLogger("mcp.server.sse").setLevel(logging.ERROR)
+logging.getLogger("uvicorn.error").setLevel(logging.ERROR)
+
 # --- FastMCP Server Initialization ---
 mcp = FastMCP("property-search-mcp")
 
@@ -220,9 +224,17 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--path", type=str, default="/property-search", help="Path for SSE endpoint"
+        "--path", type=str, default="/sse", help="Path for SSE endpoint"
     )
 
     args, unknown = parser.parse_known_args()
 
-    mcp.run(transport=args.transport, port=args.port, host=args.host, path=args.path)
+    try:
+        mcp.run(
+            transport=args.transport, port=args.port, host=args.host, path=args.path
+        )
+    except (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
+        sys.exit(0)
+    except Exception as e:
+        logger.error(f"Server error: {e}")
+        sys.exit(1)
